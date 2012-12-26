@@ -12,6 +12,7 @@
 (defonce server (atom nil))
 (defonce watcher-thread (atom nil))
 (def clients (atom {}))
+(def cbs (atom {}))
 
 (defn stop-server []
   (when-not (nil? @server)
@@ -20,7 +21,7 @@
     (reset! server nil)))
 
 (defasync polling-handler [req] cb
-  )
+  (swap! cbs assoc cb 1))
 
 (defwshandler ws-handler [req] con
   (swap! clients assoc con 1)
@@ -55,10 +56,15 @@
                   (map re-pattern (str/split (cfg :ignores) #" "))
                   [])]
     (when (seq @clients)
-      (let [b (if (> (count @clients) 1) "browsers" "browser")]
-        (info "reload" (count @clients) b))
       (doseq [client (keys @clients)]
-        (send-mesg client "reload")))))
+        (send-mesg client "reload")))
+    (when (seq @cbs)
+      (let [ks (keys @cbs)]
+        (reset! cbs {})
+        (doseq [cb ks]
+          (cb {:status 200
+               :headers {"Content-Type" "application/javascript"}
+               :body "location.reload(true);"}))))))
 
 (defn start-server []
   (stop-server)
