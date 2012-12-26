@@ -1,0 +1,11 @@
+#! /bin/bash
+
+DIR=~/.livereload
+FILE=$DIR/livereload.jar
+
+if [ ! -f $FILE ]; then
+    mkdir -p $DIR
+    wget http://127.0.0.1:9999/target/livereload.jar -O $FILE
+fi
+
+java -jar $FILE $@
