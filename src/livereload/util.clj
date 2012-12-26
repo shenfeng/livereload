@@ -11,7 +11,7 @@
 (gen-tmpls-from-resources "templates" [".tpl" ".js"])
 
 (defn info [& args]
-  (let [s (SimpleDateFormat. "HH:mm:ss")
+  (let [s (SimpleDateFormat. "yyyy-MM-dd HH:mm:ss")
         args (concat [(.format s (Date.)) "-"] args)]
     (apply println args)))
 

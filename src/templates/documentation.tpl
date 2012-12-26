@@ -39,10 +39,10 @@
 
     <div id="page-wrap">
       <h1>Livereload, free your hand from F5</h1>
+      <h3>Directory been watched</h3>
+      <p>{{ root }}</p>
+      <h3>HTTP File Server</h3>
 
-      <h3>File Server</h3>
-
-      <p>Root: /Users/feng/workspace/livereload/.</p>
       <p>Point you browser: <a href="http://{{ server-host }}/">http://{{ server-host }}</a></p>
 
       <h3>Live Reload</h3>

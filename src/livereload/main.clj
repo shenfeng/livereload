@@ -7,7 +7,8 @@
         me.shenfeng.http.server)
   (:require [livereload.util :as tmpl]
             [clojure.string :as str])
-  (:import me.shenfeng.livereload.FileWatcher))
+  (:import me.shenfeng.livereload.FileWatcher
+           java.io.File))
 
 (defonce server (atom nil))
 (defonce watcher-thread (atom nil))
@@ -28,11 +29,14 @@
   (on-close con (fn [status]
                   (swap! clients dissoc con))))
 
+(defn- help-context []
+  {:root (.getAbsolutePath (File. ^String (cfg :root)))
+   :server-host (str (public-ip) ":" (cfg :port))})
+
 (defn reload-js [req]
   {:status 200
    :headers {"Content-Type" "application/javascript"}
-   :body (tmpl/reload-js {:server-host
-                          (str (public-ip) ":" (cfg :port))})})
+   :body (tmpl/reload-js (help-context))})
 
 (defn file-hanlder [req]
   (or (response-file (subs (:uri req) 1))
@@ -45,8 +49,7 @@
     "/d/polling" (polling-handler req)
     "/d/ws" (ws-handler req)
     "/d/doc" {:status 200
-              :body (tmpl/documentation {:server-host
-                                         (str (public-ip) ":" (cfg :port))})
+              :body (tmpl/documentation (help-context))
               :headers {"Content-Type" "text/html"}}
     (file-hanlder req)))
 
@@ -75,9 +78,7 @@
      (reset! watcher-thread
              (FileWatcher/start (cfg :root) on-file-change)))
    (info "server start"  (str "0.0.0.0:" (cfg :port)))
-   (println (tmpl/welcome-msg
-             {:root (.getAbsolutePath (java.io.File. ^String (cfg :root)))
-              :server-host (str (public-ip) ":" (cfg :port))}))))
+   (println (tmpl/welcome-msg (help-context)))))
 
 (defn -main [& args]
   (let [[options _ banner]
