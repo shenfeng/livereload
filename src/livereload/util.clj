@@ -3,12 +3,17 @@
         [me.shenfeng.mustache :only [gen-tmpls-from-resources]]
         [livereload.config :only [cfg]])
   (:require [clojure.string :as str])
-  (:import java.net.NetworkInterface
-           java.util.Collections
+  (:import [java.net NetworkInterface InetAddress]
+           [java.util Collections Date]
+           java.text.SimpleDateFormat
            java.io.File))
 
+(gen-tmpls-from-resources "templates" [".tpl" ".js"])
+
 (defn info [& args]
-  (apply println args))
+  (let [s (SimpleDateFormat. "HH:mm:ss")
+        args (concat [(.format s (Date.)) "-"] args)]
+    (apply println args)))
 
 (defn to-int [s] (cond
                   (string? s) (Integer/parseInt s)
@@ -34,14 +39,14 @@
          (recur (inc i#))))))
 
 (defn public-ip []
-  (some (fn [ip]
+  (some (fn [^String ip]
           (when (and (> 16 (count ip))
                      (not (.startsWith ip "127")))
             ip))
         (mapcat  (fn [i]
                    (map (fn [a]
-                          (.getHostAddress a))
-                        (Collections/list (.getInetAddresses i))))
+                          (.getHostAddress ^InetAddress  a))
+                        (Collections/list (.getInetAddresses ^NetworkInterface i))))
                  (Collections/list (NetworkInterface/getNetworkInterfaces)))))
 
 ;;; port from ring-clojure to exclude the dependency, since I want livereload to be small
@@ -141,13 +146,13 @@
     #(.startsWith (.toLowerCase (.getName ^File %)) "index.")
     (.listFiles dir))))
 
-(defn- get-file
+(defn- ^File get-file
   "Safely retrieve the correct file. See file-response for an
   explanation of options."
   [^String path]
-  (let [^File file (File. path)]
+  (let [^File file (File. ^String (cfg :root) path)]
     (cond
-     (.isDirectory file) (find-index-file file)
+     (.isDirectory file) (or (find-index-file file) file)
      (.exists file) file)))
 
 (defn- guess-mime-type
@@ -155,12 +160,40 @@
   or application/octet-stream if a type cannot be guessed."
   [^File file]
   (or (default-mime-types (filename-ext (.getName file)))
-      "application/octet-stream"))
+      "text/plain"))
+
+(defn- get-file-info [^File f]
+  (let [name (.getName f)
+        formater (SimpleDateFormat. "yyy-MM-dd HH:mm:ss")
+        d (.isDirectory f)]
+    {:name name
+     :size (if-not d
+             (let [size (.length f)]
+               (cond (> size (* 1024 1024)) (format "%.2fM" (/ size 1024.0 1024))
+                     (> size (* 1024)) (format "%.2fk" (/ size 1024.0))
+                     :else size))
+             "-")
+     :mtime (let [mtime (.lastModified f)]
+              (.format formater (Date. mtime)))
+     :href (if d (str name "/") name)}))
+
+(defn- get-dirs [path]
+  (let [parts (str/split path #"/")]
+    (map (fn [i]
+           {:name (nth parts i)
+            :href (str "/" (str/join "/" (take (inc i) parts)) "/")})
+         (range 0 (count parts)))))
 
 (defn response-file [path]
   (when-let [file (get-file path)]
-    {:status 200
-     :headers {"Content-Type" (guess-mime-type file)}
-     :body file}))
-
-(gen-tmpls-from-resources "templates" [".tpl" ".js"])
+    (if (.isDirectory file)
+      {:status 200
+       :headers {"Content-Type" "text/html"}
+       :body (let [path (if (str/blank? path) "/" path)]
+               (dir-list {:dir path
+                          :dirs (get-dirs path)
+                          :files (sort-by :name (map get-file-info (.listFiles file)))}))}
+      {:status 200
+       :headers {"Content-Length" (str (.length file))
+                 "Content-Type" (guess-mime-type file)}
+       :body file})))

@@ -1,0 +1,11 @@
+#! /bin/bash
+
+CLJ=/Users/feng/.m2/repository/org/clojure/clojure/1.4.0/clojure-1.4.0.jar
+
+# cd src/java
+
+rm -rf target && mkdir -p target/classes
+
+find src/java -name "*.java" | xargs javac -Xlint:unchecked  -encoding utf8 -cp $CLJ -d target/classes -sourcepath src/java/
+
+java -cp "$CLJ:target/classes" me.shenfeng.livereload.FileWatcher $@
